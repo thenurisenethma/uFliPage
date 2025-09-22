@@ -60,7 +60,8 @@ function closeAddBookForm() {
 }
 
 // Handle add book form submission
-document.getElementById('add-book-form').addEventListener('submit', function(e) {
+// Handle add book form submission
+document.getElementById('add-book-form').addEventListener('submit', async function(e) {
     e.preventDefault();
 
     if (!currentUser || currentUser.type !== 'writer') {
@@ -68,8 +69,7 @@ document.getElementById('add-book-form').addEventListener('submit', function(e) 
         return;
     }
 
-    const formData = new FormData(e.target);
-    const title = document.getElementsByClassName('book-title').value;
+    const title = document.getElementById('input-book-title').value; // use input ID
     const description = document.getElementById('book-description').value;
     const category = document.getElementById('book-category').value;
     const coverImage = document.getElementById('book-cover').value || 'https://images.pexels.com/photos/1029141/pexels-photo-1029141.jpeg?auto=compress&cs=tinysrgb&w=400';
@@ -79,7 +79,6 @@ document.getElementById('add-book-form').addEventListener('submit', function(e) 
     const readTime = `${Math.ceil(wordCount / 250)} min`;
 
     const newBook = {
-        id: Date.now().toString(),
         title,
         author: currentUser.name,
         authorId: currentUser.id,
@@ -87,18 +86,34 @@ document.getElementById('add-book-form').addEventListener('submit', function(e) 
         content,
         coverImage,
         category,
-        publishedDate: new Date().toLocaleDateString(),
+        publishedDate: new Date().toISOString(),
         readTime
     };
 
-    allBooks.unshift(newBook);
-    renderBooks();
-    updateWriterBooks();
-    updateWriterStats();
-    closeAddBookForm();
+    try {
+        const response = await fetch('http://localhost:8080/api/books', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(newBook)
+        });
 
-    showNotification('Book published successfully!');
+        if (!response.ok) throw new Error('Failed to publish book');
+
+        const savedBook = await response.json();
+        allBooks.unshift(savedBook);
+        renderBooks();
+        updateWriterBooks();
+        updateWriterStats();
+        closeAddBookForm();
+        showNotification('Book published successfully!');
+    } catch (error) {
+        console.error('Publish error:', error);
+        showNotification('Failed to publish book. Check console for details.');
+    }
 });
+
 
 function updateWriterBooks() {
     if (!currentUser || currentUser.type !== 'writer') return;

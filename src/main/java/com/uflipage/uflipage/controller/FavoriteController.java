@@ -29,7 +29,7 @@ public class FavoriteController {
         return toDTO(saved);
     }
 
-    // ✅ this is missing in your case
+
     @GetMapping
     public List<FavoriteDTO> getAllFavorites() {
         return favoriteService.getAllFavorites()

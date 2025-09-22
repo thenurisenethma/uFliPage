@@ -1,49 +1,6 @@
-// auth.js
-
-const API_BASE_URL = 'http://localhost:8080/api'; // Adjust if needed
-let currentUser = null;
+// Authentication functionality
 let isSignUpMode = false;
 let selectedUserType = 'reader';
-
-// ----------------- AUTHENTICATION FUNCTIONS -----------------
-
-// Login function using backend API with JWT
-async function login(email, password) {
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password })
-    });
-
-    if (!res.ok) throw new Error("Login failed");
-
-    const data = await res.json();
-    localStorage.setItem("token", data.token);
-    currentUser = data.user;
-    localStorage.setItem("bookverse_user", JSON.stringify(currentUser));
-    updateUIForUser();
-    return data;
-}
-
-// Signup function
-async function signup(name, email, password, type) {
-    const res = await fetch(`${API_BASE_URL}/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, type })
-    });
-
-    if (!res.ok) throw new Error("Signup failed");
-
-    const data = await res.json();
-    localStorage.setItem("token", data.token);
-    currentUser = data.user;
-    localStorage.setItem("bookverse_user", JSON.stringify(currentUser));
-    updateUIForUser();
-    return data;
-}
-
-// ----------------- MODAL & FORM UI -----------------
 
 function showAuth() {
     const modal = document.getElementById('auth-modal');
@@ -101,9 +58,7 @@ function updateUserTypeButtons() {
     });
 }
 
-// ----------------- EVENT LISTENERS -----------------
-
-// User type selection
+// Handle user type selection
 document.addEventListener('click', function(e) {
     if (e.target.closest('.type-btn')) {
         const btn = e.target.closest('.type-btn');
@@ -112,30 +67,58 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Auth form submission
-document.getElementById('auth-form').addEventListener('submit', async function(e) {
+
+document.getElementById('auth-form').addEventListener('submit', function(e) {
     e.preventDefault();
 
-    const name = document.getElementById('name').value || 'User';
+    const name = document.getElementById('name').value || null;
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
 
-    try {
-        if (isSignUpMode) {
-            await signup(name, email, password, selectedUserType);
-            showNotification(`Account created successfully! Welcome, ${currentUser.name}`);
-        } else {
-            await login(email, password);
-            showNotification(`Welcome back, ${currentUser.name}!`);
+    // Decide endpoint
+    const url = isSignUpMode
+        ? 'http://localhost:8080/api/auth/signup'
+        : 'http://localhost:8080/api/auth/signin';
+
+    // Build payload
+    const payload = isSignUpMode
+        ? { name, email, password, role: selectedUserType }   // signup
+        : { email, password };                               // signin
+
+    $.ajax({
+        type: 'POST',
+        url: url,
+        contentType: 'application/json',
+        data: JSON.stringify(payload),
+        success: function(response) {
+            // response = UserResponseDTO from backend
+            currentUser = {
+                id: response.id,
+                name: response.name,
+                email: response.email,
+                type: response.role   // 'writer' or 'reader'
+            };
+
+            localStorage.setItem('bookverse_user', JSON.stringify(currentUser));
+            updateUIForUser();
+            closeAuth();
+
+            // If writer, open dashboard
+            if (currentUser.type === 'writer') {
+                showWriter();
+            } else {
+                showHome();
+            }
+
+            showNotification(`Welcome, ${currentUser.name}!`);
+        },
+        error: function(xhr) {
+            alert(xhr.responseText || 'Authentication failed');
         }
-        closeAuth();
-    } catch (err) {
-        showNotification(err.message);
-        console.error(err);
-    }
+    });
 });
 
-// ----------------- UI UPDATE & LOGOUT -----------------
+
 
 function updateUIForUser() {
     const signInBtn = document.getElementById('sign-in-btn');
@@ -161,23 +144,18 @@ function updateUIForUser() {
         writerBtn.style.display = 'none';
     }
 
-    if (typeof updateWriterStats === 'function') {
-        updateWriterStats();
-    }
+    updateWriterStats();
 }
 
 function logout() {
     currentUser = null;
-    localStorage.removeItem('token');
-    localStorage.removeItem('bookverse_user');
     updateUIForUser();
     showHome();
     showNotification('You have been signed out successfully.');
 }
 
-// ----------------- NOTIFICATIONS -----------------
-
 function showNotification(message) {
+    // Create a simple notification
     const notification = document.createElement('div');
     notification.style.cssText = `
         position: fixed;
@@ -200,14 +178,3 @@ function showNotification(message) {
         setTimeout(() => notification.remove(), 300);
     }, 3000);
 }
-
-// ----------------- INITIALIZE -----------------
-
-// Load user from localStorage on startup
-(function initAuth() {
-    const storedUser = localStorage.getItem('bookverse_user');
-    if (storedUser) {
-        currentUser = JSON.parse(storedUser);
-        updateUIForUser();
-    }
-})();
