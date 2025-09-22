@@ -19,5 +19,5 @@ You can view all screenshots in the [screenshots](./screenshots) folder.
 3. Start the frontend: `npm start`
 4. Open in your browser
 
-## 
-YouTube video https://youtu.be/Lj-fz8uorgQ
+## YouTube video 
+https://youtu.be/Lj-fz8uorgQ
